@@ -19,12 +19,34 @@ defmodule Babble do
 
   `topic` is a String or atom specifying the name of the topic to publish to.
 
-  `message` is a map of key/value pairs to publish.
+  `message` is a map of key/value pairs, or a keyword list, to publish.
 
   """
-  @spec publish(topic :: topic, message :: map()) :: :ok | {:error, reason :: String.t()}
+  @spec publish(topic :: topic, message :: map() | keyword()) ::
+          :ok | {:error, reason :: String.t()}
   def publish(topic, message) do
-    :ok
+    table = topic_to_table_name(topic)
+    owner = :ets.info(table, :owner)
+
+    if owner == :undefined do
+      # Need to create the table, then publish
+      ^table = :ets.new(table, [:named_table, :protected, :set])
+    end
+
+    vals =
+      if is_map(message) do
+        Map.to_list(message)
+      else
+        message
+      end
+
+    try do
+      :ets.insert(table, vals)
+      :ok
+    rescue
+      e in ArgumentError ->
+        {:error, "Can't publish to #{topic}; topic is owned by #{inspect(owner)}"}
+    end
   end
 
   @doc """
@@ -87,4 +109,22 @@ defmodule Babble do
   """
   def set_time_source(time_fun) do
   end
+
+  ### Helper functions
+
+  @doc """
+  Get the ETS table name for a given topic, as an atom
+
+  ## Examples
+  ```
+     iex> Babble.topic_to_table_name({:"node@host", "my.topic"})
+     :"node@host/my.topic"
+  ```
+  """
+  @spec topic_to_table_name(topic) :: atom()
+  def topic_to_table_name({node, topic}) when is_atom(node),
+    do: String.to_atom("#{node}/#{topic}")
+
+  def topic_to_table_name(topic) when is_atom(topic) or is_binary(topic),
+    do: String.to_atom("#{Node.self()}/#{topic}")
 end
