@@ -66,6 +66,14 @@ defmodule Babble do
   end
 
   @doc """
+  Unsubscribe from a topic.
+  """
+  @spec unsubscribe(topic :: topic) :: :ok
+  def unsubscribe(topic) do
+    :ok
+  end
+
+  @doc """
   Retrieve the last received values for keys published to the specified topic
   """
   @spec poll(topic :: topic, keys :: list() | :all, stale_time :: float()) ::
