@@ -25,14 +25,17 @@ defmodule Babble do
   @spec publish(topic :: topic, message :: map() | keyword()) ::
           :ok | {:error, reason :: String.t()}
   def publish(topic, message) do
-    table = topic_to_table_name(topic)
-    owner = :ets.info(table, :owner)
+    # TODO: Move all of this logic into a separate asynchronous Task process linked to the caller pcoess
+
+    fq_topic = fully_qualified_topic_name(topic)
+    owner = :ets.info(fq_topic, :owner)
 
     if owner == :undefined do
       # Need to create the table, then publish
-      ^table = :ets.new(table, [:named_table, :protected, :set])
+      ^fq_topic = :ets.new(fq_topic, [:named_table, :public, :set])
     end
 
+    # Insert values into local ETS table
     vals =
       if is_map(message) do
         Map.to_list(message)
@@ -40,13 +43,11 @@ defmodule Babble do
         message
       end
 
-    try do
-      :ets.insert(table, vals)
-      :ok
-    rescue
-      e in ArgumentError ->
-        {:error, "Can't publish to #{topic}; topic is owned by #{inspect(owner)}"}
-    end
+    :ets.insert(fq_topic, vals)
+
+    # Lookup subscribers and deliver message to them
+
+    :ok
   end
 
   @doc """
@@ -100,8 +101,12 @@ defmodule Babble do
   """
   @spec poll(topic :: topic, keys :: list() | :all, stale_time :: float()) ::
           {:ok, list()} | {:error, reason :: String.t()}
-  def poll(topic, keys \\ [], stale_time \\ :none) do
-    {:ok, []}
+  def poll(topic, keys \\ :all, stale_time \\ :none) do
+    table_map = Enum.into(:ets.tab2list(fully_qualified_topic_name(topic)), %{})
+    case keys do
+      :all -> table_map
+      l when is_list(l) -> for(key <- keys, into: %{}, do: {key, Map.fetch!(table_map, key)})
+    end
   end
 
   @doc """
@@ -113,18 +118,24 @@ defmodule Babble do
   ### Helper functions
 
   @doc """
-  Get the ETS table name for a given topic, as an atom
+  Get the fully qualified name for a given topic, as an atom
 
   ## Examples
   ```
-     iex> Babble.topic_to_table_name({:"node@host", "my.topic"})
+     iex> Babble.fully_qualified_topic_name({:"node@host", "my.topic"})
      :"node@host/my.topic"
   ```
   """
-  @spec topic_to_table_name(topic) :: atom()
-  def topic_to_table_name({node, topic}) when is_atom(node),
-    do: String.to_atom("#{node}/#{topic}")
+  @spec fully_qualified_topic_name(topic) :: atom()
+  def fully_qualified_topic_name({node, topic}) when is_atom(node) do
+    String.to_atom("#{node}/#{topic}")
+  end
 
-  def topic_to_table_name(topic) when is_atom(topic) or is_binary(topic),
-    do: String.to_atom("#{Node.self()}/#{topic}")
+  def fully_qualified_topic_name(topic) when is_atom(topic) or is_binary(topic) do
+    if String.contains?(Atom.to_string(topic), "/") do
+      topic
+    else
+      String.to_atom("#{Node.self()}/#{topic}")
+    end
+  end
 end
