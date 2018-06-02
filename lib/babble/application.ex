@@ -10,6 +10,7 @@ defmodule Babble.Application do
     children = [
       # Starts a worker by calling: Babble.Worker.start_link(arg)
       # {Babble.Worker, arg},
+      Babble.SubscriptionManager.child_spec([])
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

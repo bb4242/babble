@@ -42,10 +42,9 @@ defmodule Babble do
       else
         message
       end
-
     :ets.insert(fq_topic, vals)
 
-    # Lookup subscribers and deliver message to them
+    # TODO: Lookup subscribers (both remote and local) and deliver message to them
 
     :ok
   end
@@ -57,16 +56,15 @@ defmodule Babble do
 
     * `:rate :: float() | :on_publish` - The rate to subscribe to the topic at.
 
-      * If `:rate` is a float, it is interpreted as a rate in Hz. If the topic is remote,
-      it will be transmitted over the network via UDP multicast. This is appropriate
-      for topics that are published at regular intervals, such as periodic sensor readings.
+      * If `:rate` is a float, it is interpreted as a rate in Hz.
 
       * If `:rate` is `:on_publish`, the subscriber will receive every published message.
-      If the topic is remote, it will be transmitted over the network via
-      TCP, which is a reliable transport. This is appropriate for topics that are
-      published only intermittently, such as configuration data.
 
       * The default is `:on_publish`.
+
+    * `:transport :: :tcp | :udp_multicast` - The transport to use for transmitting remote topics over the network.
+
+      * The default is `:tcp`.
 
     * `:deliver :: bool()` - Whether to deliver messages to the subscriber process.
 
@@ -85,7 +83,27 @@ defmodule Babble do
   """
   @spec subscribe(topic :: topic, options :: keyword()) :: :ok
   def subscribe(topic, options \\ []) do
-    :ok
+    id = fn x -> x end
+    options = Keyword.update(options, :rate, :on_publish, id)
+    options = Keyword.update(options, :transport, :tcp, id)
+    options = Keyword.update(options, :deliver, true, id)
+
+    rate = options[:rate]
+    if not ((is_number(rate) and rate > 0) or (rate === :on_publish)) do
+      raise ArgumentError, message: ":rate must be a positive number or :on_publish"
+    end
+
+    transport = options[:transport]
+    if not (transport in [:tcp, :udp_multicast]) do
+      raise ArgumentError, message: ":transport must be :tcp or :udp_multicast"
+    end
+
+    deliver = options[:deliver]
+    if not is_boolean(deliver) do
+      raise ArgumentError, message: ":deliver must be a boolean"
+    end
+
+    :ok = GenServer.call(Babble.SubscriptionManager, {:subscribe, fully_qualified_topic_name(topic), options})
   end
 
   @doc """
@@ -102,10 +120,16 @@ defmodule Babble do
   @spec poll(topic :: topic, keys :: list() | :all, stale_time :: float()) ::
           {:ok, list()} | {:error, reason :: String.t()}
   def poll(topic, keys \\ :all, stale_time \\ :none) do
-    table_map = Enum.into(:ets.tab2list(fully_qualified_topic_name(topic)), %{})
-    case keys do
-      :all -> table_map
-      l when is_list(l) -> for(key <- keys, into: %{}, do: {key, Map.fetch!(table_map, key)})
+    try do
+      table_vals = :ets.tab2list(fully_qualified_topic_name(topic))
+
+      case keys do
+        :all -> {:ok, table_vals |> Enum.into(%{})}
+        l when is_list(l) -> {:ok, for(key <- keys, do: Keyword.fetch!(table_vals, key))}
+      end
+    rescue
+      # TODO: Give better error messages (topic not found, key not found, topic is stale)
+      _ -> {:error, "Could not retrieve requested values for topic #{topic}"}
     end
   end
 
@@ -131,8 +155,12 @@ defmodule Babble do
     String.to_atom("#{node}/#{topic}")
   end
 
-  def fully_qualified_topic_name(topic) when is_atom(topic) or is_binary(topic) do
-    if String.contains?(Atom.to_string(topic), "/") do
+  def fully_qualified_topic_name(topic) when is_atom(topic) do
+    fully_qualified_topic_name(Atom.to_string(topic))
+  end
+
+  def fully_qualified_topic_name(topic) when is_binary(topic) do
+    if String.contains?(topic, "/") do
       topic
     else
       String.to_atom("#{Node.self()}/#{topic}")
