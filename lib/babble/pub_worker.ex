@@ -8,6 +8,7 @@ defmodule Babble.PubWorker do
   import Babble.Utils
 
   defmodule State do
+    @moduledoc "State for PubWorker"
     @enforce_keys [:topic, :node]
     defstruct [{:next_pub_times, %{}}, :topic, :node]
   end
@@ -76,7 +77,7 @@ defmodule Babble.PubWorker do
   @impl true
   def handle_cast(
         {:publish, message, options},
-        state = %State{topic: topic, next_pub_times: next_pub_times}
+        state = %State{topic: topic, next_pub_times: _next_pub_times}
       ) do
     # TODO: Insert timestamp into update
 

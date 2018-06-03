@@ -111,7 +111,7 @@ defmodule Babble do
   """
   @spec poll(topic :: topic, keys :: list() | :all, stale_time :: float()) ::
           {:ok, list()} | {:error, reason :: String.t()}
-  def poll(topic, keys \\ :all, stale_time \\ :none) do
+  def poll(topic, keys \\ :all, _stale_time \\ :none) do
     topic = fully_qualified_topic_name(topic)
 
     try do
@@ -131,6 +131,6 @@ defmodule Babble do
   @doc """
   Sets the timesource for topic publication timestamps
   """
-  def set_time_source(time_fun) do
+  def set_time_source(_time_fun) do
   end
 end
