@@ -29,6 +29,8 @@ use Mix.Config
 #
 #     import_config "#{Mix.env}.exs"
 
-config :remix,
-  escript: true,
-  silent: true
+if Mix.env() == :dev do
+  config :remix,
+    escript: true,
+    silent: true
+end

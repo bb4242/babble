@@ -22,6 +22,7 @@ defmodule Babble do
   `topic` is a String or atom specifying the name of the topic to publish to.
 
   `message` is a map of key/value pairs, or a keyword list, to publish.
+
   """
   @spec publish(topic :: topic, message :: map() | keyword()) ::
           :ok | {:error, reason :: String.t()}

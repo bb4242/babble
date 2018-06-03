@@ -7,7 +7,14 @@ defmodule Babble.MixProject do
       version: "0.1.0",
       elixir: "~> 1.6",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test
+      ]
     ]
   end
 
@@ -25,9 +32,11 @@ defmodule Babble.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      # Dev and test dependencies
       {:ex_doc, "~> 0.18", only: :dev, runtime: false},
       {:dialyxir, "~> 0.5", only: :dev, runtime: false},
       {:credo, "~> 0.9.2", only: :dev, runtime: false},
+      {:excoveralls, "~> 0.8.2", only: :test},
       {:remix, "~> 0.0.1", only: :dev}
     ]
   end

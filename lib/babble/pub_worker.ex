@@ -19,6 +19,10 @@ defmodule Babble.PubWorker do
 
   @doc """
   Internal publication API.  Use Babble.publish instead. :)
+
+    iex> Babble.publish("my.topic", key1: :val1, key2: :val2)
+    :ok
+
   """
   def _internal_publish(topic, message, force \\ false) do
     topic = fully_qualified_topic_name(topic)
@@ -52,16 +56,14 @@ defmodule Babble.PubWorker do
     # TODO: Insert timestamp into update
 
     # Insert values into local ETS table
-    vals =
+    {msg_kw, msg_map} =
       if is_map(message) do
-        Map.to_list(message)
+        {Map.to_list(message), message}
       else
-        message
+        {message, Enum.into(message, %{})}
       end
 
-    :ets.insert(topic, vals)
-
-    IO.puts("Hello")
+    :ets.insert(topic, msg_kw)
 
     # Publish to all local subscribers
     case Babble.poll(@subscription_topic, [topic]) do
@@ -70,7 +72,7 @@ defmodule Babble.PubWorker do
         for {pid, sub} <- subs, sub[:deliver] do
           # TODO: Handle decimated delivery specified by sub[:rate]
           # TODO: include timestamp
-          Process.send(pid, {:babble_msg, topic, vals}, [])
+          Process.send(pid, {:babble_msg, topic, msg_map}, [])
         end
 
       {:error, _} ->

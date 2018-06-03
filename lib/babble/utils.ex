@@ -5,9 +5,13 @@ defmodule Babble.Utils do
   Get the fully qualified name for a given topic, as an atom
 
   ## Examples
+
   ```
-     iex> Babble.fully_qualified_topic_name({:"node@host", "my.topic"})
-     :"node@host/my.topic"
+  iex> Babble.Utils.fully_qualified_topic_name({:"node@host", "my.topic"})
+  :"node@host/my.topic"
+
+  iex> Babble.Utils.fully_qualified_topic_name(:"node@host/my.topic")
+  :"node@host/my.topic"
   ```
   """
   @spec fully_qualified_topic_name(Babble.topic()) :: atom()
