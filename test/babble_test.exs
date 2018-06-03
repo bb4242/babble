@@ -48,7 +48,7 @@ defmodule BabbleTest do
     # on node connection
     Port.open({:spawn, "elixir --name #{Atom.to_string(slave)} -S mix run --no-halt"}, [])
     Process.sleep(1000)
-    :pong = Node.ping slave
+    :pong = Node.ping(slave)
     Process.sleep(1000)
 
     msg = %{key1: :val1, key2: :val2}
@@ -68,7 +68,5 @@ defmodule BabbleTest do
     # TODO: Wrap the Port.open call in a wrapper to prevent zombie processes
     # https://hexdocs.pm/elixir/Port.html#module-zombie-processes
     :rpc.cast(slave, :init, :stop, [])
-
   end
-
 end

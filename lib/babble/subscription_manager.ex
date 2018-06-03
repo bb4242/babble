@@ -82,7 +82,14 @@ defmodule Babble.SubscriptionManager do
 
     # Remove pid from all subscriptions
     all_subs = all_subs |> Enum.map(fn {k, v} -> {k, Map.drop(v, [pid])} end) |> Enum.into(%{})
-    :ok = Babble.PubWorker._internal_publish(@subscription_topic, all_subs, sync: true, remote_publish: true)
+
+    :ok =
+      Babble.PubWorker._internal_publish(
+        @subscription_topic,
+        all_subs,
+        sync: true,
+        remote_publish: true
+      )
 
     # Remove pid from monitors
     monitors = Map.drop(monitors, [pid])

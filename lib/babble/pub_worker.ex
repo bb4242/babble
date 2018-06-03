@@ -59,6 +59,7 @@ defmodule Babble.PubWorker do
     # If this is a remote topic, monitor the remote node so we can
     # delete the table when the node goes down
     node = get_topic_node(topic)
+
     if node != Node.self() do
       Node.monitor(node, true)
     end
@@ -104,15 +105,11 @@ defmodule Babble.PubWorker do
     {:noreply, state}
   end
 
-
   @impl true
   def handle_info({:nodedown, node}, state = %State{node: node, topic: topic}) do
     send_to_local_subscribers(topic, {:babble_remote_topic_disconnect, topic})
     {:stop, :normal, state}
   end
-
-
-
 
   # Helpers
 

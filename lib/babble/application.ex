@@ -12,7 +12,7 @@ defmodule Babble.Application do
       # {Babble.Worker, arg},
       {Babble.SubscriptionManager, []},
       {DynamicSupervisor, name: Babble.PubWorkerSupervisor, strategy: :one_for_one},
-      {Babble.NodeMonitor, []},
+      {Babble.NodeMonitor, []}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

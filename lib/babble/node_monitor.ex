@@ -32,5 +32,4 @@ defmodule Babble.NodeMonitor do
     # TODO: Only deliver this publication to _node, not everyone
     Babble.PubWorker._internal_publish(@subscription_topic, table, remote_publish: true)
   end
-
 end
