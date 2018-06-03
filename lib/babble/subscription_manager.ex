@@ -30,13 +30,16 @@ defmodule Babble.SubscriptionManager do
         {:ok, [subs]} -> subs
         {:error, _} -> %{}
       end
+
     new_subs = Map.put(existing_subs, pid, options)
     :ok = Babble.publish(@subscription_topic, [{topic, new_subs}])
 
-    monitor = case Map.fetch(monitors, pid) do
-                {:ok, m} -> m
-                :error -> Process.monitor(pid)
-              end
+    monitor =
+      case Map.fetch(monitors, pid) do
+        {:ok, m} -> m
+        :error -> Process.monitor(pid)
+      end
+
     monitors = Map.put(monitors, pid, monitor)
     {:reply, :ok, %{state | monitors: monitors}}
   end
@@ -54,5 +57,4 @@ defmodule Babble.SubscriptionManager do
 
     {:noreply, %{state | monitors: monitors}}
   end
-
 end

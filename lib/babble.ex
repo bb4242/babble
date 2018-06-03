@@ -6,6 +6,8 @@ defmodule Babble do
   - Talk about TCP and UDP multicast transport
   - ETS storage
   """
+  import Babble.Utils
+  use Babble.Constants
 
   @typedoc """
   Topics are represented as strings or atoms.
@@ -20,33 +22,11 @@ defmodule Babble do
   `topic` is a String or atom specifying the name of the topic to publish to.
 
   `message` is a map of key/value pairs, or a keyword list, to publish.
-
   """
   @spec publish(topic :: topic, message :: map() | keyword()) ::
           :ok | {:error, reason :: String.t()}
   def publish(topic, message) do
-    # TODO: Move all of this logic into a separate asynchronous Task process linked to the caller pcoess
-
-    fq_topic = fully_qualified_topic_name(topic)
-    owner = :ets.info(fq_topic, :owner)
-
-    if owner == :undefined do
-      # Need to create the table, then publish
-      ^fq_topic = :ets.new(fq_topic, [:named_table, :public, :set])
-    end
-
-    # Insert values into local ETS table
-    vals =
-      if is_map(message) do
-        Map.to_list(message)
-      else
-        message
-      end
-    :ets.insert(fq_topic, vals)
-
-    # TODO: Lookup subscribers (both remote and local) and deliver message to them
-
-    :ok
+    Babble.PubWorker._internal_publish(topic, message)
   end
 
   @doc """
@@ -89,21 +69,28 @@ defmodule Babble do
     options = Keyword.update(options, :deliver, true, id)
 
     rate = options[:rate]
-    if not ((is_number(rate) and rate > 0) or (rate === :on_publish)) do
+
+    if not ((is_number(rate) and rate > 0) or rate === :on_publish) do
       raise ArgumentError, message: ":rate must be a positive number or :on_publish"
     end
 
     transport = options[:transport]
+
     if not (transport in [:tcp, :udp_multicast]) do
       raise ArgumentError, message: ":transport must be :tcp or :udp_multicast"
     end
 
     deliver = options[:deliver]
+
     if not is_boolean(deliver) do
       raise ArgumentError, message: ":deliver must be a boolean"
     end
 
-    :ok = GenServer.call(Babble.SubscriptionManager, {:subscribe, fully_qualified_topic_name(topic), options})
+    :ok =
+      GenServer.call(
+        Babble.SubscriptionManager,
+        {:subscribe, fully_qualified_topic_name(topic), options}
+      )
   end
 
   @doc """
@@ -129,7 +116,8 @@ defmodule Babble do
       end
     rescue
       # TODO: Give better error messages (topic not found, key not found, topic is stale)
-      _ -> {:error, "Could not retrieve requested values for topic #{topic}"}
+      _ ->
+        {:error, "Could not retrieve requested values for topic #{topic}"}
     end
   end
 
@@ -137,33 +125,5 @@ defmodule Babble do
   Sets the timesource for topic publication timestamps
   """
   def set_time_source(time_fun) do
-  end
-
-  ### Helper functions
-
-  @doc """
-  Get the fully qualified name for a given topic, as an atom
-
-  ## Examples
-  ```
-     iex> Babble.fully_qualified_topic_name({:"node@host", "my.topic"})
-     :"node@host/my.topic"
-  ```
-  """
-  @spec fully_qualified_topic_name(topic) :: atom()
-  def fully_qualified_topic_name({node, topic}) when is_atom(node) do
-    String.to_atom("#{node}/#{topic}")
-  end
-
-  def fully_qualified_topic_name(topic) when is_atom(topic) do
-    fully_qualified_topic_name(Atom.to_string(topic))
-  end
-
-  def fully_qualified_topic_name(topic) when is_binary(topic) do
-    if String.contains?(topic, "/") do
-      topic
-    else
-      String.to_atom("#{Node.self()}/#{topic}")
-    end
   end
 end

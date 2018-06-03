@@ -10,12 +10,13 @@ defmodule Babble.Application do
     children = [
       # Starts a worker by calling: Babble.Worker.start_link(arg)
       # {Babble.Worker, arg},
-      Babble.SubscriptionManager.child_spec([])
+      Babble.SubscriptionManager.child_spec([]),
+      {DynamicSupervisor, name: Babble.PubWorkerSupervisor, strategy: :one_for_one}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: Babble.Supervisor]
+    opts = [strategy: :rest_for_one, name: Babble.Supervisor]
     Supervisor.start_link(children, opts)
   end
 end
