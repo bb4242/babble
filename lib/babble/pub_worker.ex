@@ -8,8 +8,8 @@ defmodule Babble.PubWorker do
   import Babble.Utils
 
   defmodule State do
-    @enforce_keys [:topic]
-    defstruct [{:next_pub_times, %{}}, :topic]
+    @enforce_keys [:topic, :node]
+    defstruct [{:next_pub_times, %{}}, :topic, :node]
   end
 
   # Client API
@@ -55,7 +55,15 @@ defmodule Babble.PubWorker do
   def init(topic) do
     topic = fully_qualified_topic_name(topic)
     ^topic = :ets.new(topic, [:named_table, :protected, :set])
-    {:ok, %State{topic: topic}}
+
+    # If this is a remote topic, monitor the remote node so we can
+    # delete the table when the node goes down
+    node = get_topic_node(topic)
+    if node != Node.self() do
+      Node.monitor(node, true)
+    end
+
+    {:ok, %State{topic: topic, node: node}}
   end
 
   @impl true
@@ -106,6 +114,16 @@ defmodule Babble.PubWorker do
 
     {:noreply, state}
   end
+
+
+  @impl true
+  def handle_info({:nodedown, node}, state = %State{node: node}) do
+    IO.puts("Delete table for #{inspect node}")
+    {:stop, :normal, state}
+  end
+
+
+
 
   # Helpers
 

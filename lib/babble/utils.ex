@@ -8,15 +8,15 @@ defmodule Babble.Utils do
 
   ```
   iex> Babble.Utils.fully_qualified_topic_name({:"node@host", "my.topic"})
-  :"node@host/my.topic"
+  :"node@host:my.topic"
 
-  iex> Babble.Utils.fully_qualified_topic_name(:"node@host/my.topic")
-  :"node@host/my.topic"
+  iex> Babble.Utils.fully_qualified_topic_name(:"node@host:my.topic")
+  :"node@host:my.topic"
   ```
   """
   @spec fully_qualified_topic_name(Babble.topic()) :: atom()
   def fully_qualified_topic_name({node, topic}) when is_atom(node) do
-    String.to_atom("#{node}/#{topic}")
+    String.to_atom("#{node}:#{topic}")
   end
 
   def fully_qualified_topic_name(topic) when is_atom(topic) do
@@ -24,10 +24,27 @@ defmodule Babble.Utils do
   end
 
   def fully_qualified_topic_name(topic) when is_binary(topic) do
-    if String.contains?(topic, "/") do
+    if String.contains?(topic, ":") do
       String.to_atom(topic)
     else
-      String.to_atom("#{Node.self()}/#{topic}")
+      String.to_atom("#{Node.self()}:#{topic}")
     end
+  end
+
+  @doc """
+  Get the node for the specified topic
+
+  ```
+  iex> Babble.Utils.get_topic_node(:"node@host:my.topic")
+  :"node@host"
+  ```
+  """
+  def get_topic_node(topic) do
+    topic
+    |> fully_qualified_topic_name
+    |> Atom.to_string()
+    |> String.split(":")
+    |> hd
+    |> String.to_atom()
   end
 end
