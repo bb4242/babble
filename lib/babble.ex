@@ -112,8 +112,10 @@ defmodule Babble do
   @spec poll(topic :: topic, keys :: list() | :all, stale_time :: float()) ::
           {:ok, list()} | {:error, reason :: String.t()}
   def poll(topic, keys \\ :all, stale_time \\ :none) do
+    topic = fully_qualified_topic_name(topic)
+
     try do
-      table_vals = :ets.tab2list(fully_qualified_topic_name(topic))
+      table_vals = :ets.tab2list(topic)
 
       case keys do
         :all -> {:ok, table_vals |> Enum.into(%{})}
@@ -122,7 +124,7 @@ defmodule Babble do
     rescue
       # TODO: Give better error messages (topic not found, key not found, topic is stale)
       _ ->
-        {:error, "Could not retrieve requested values for topic #{topic}"}
+        {:error, "Could not retrieve requested values for topic #{inspect(topic)}"}
     end
   end
 

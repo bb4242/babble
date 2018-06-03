@@ -18,12 +18,15 @@ defmodule Babble.PubWorker do
   end
 
   @doc """
-  Internal publication API.  Use `Babble.publish/2` instead. :)
+  Internal-only publication API. Use `Babble.publish/2` instead. :)
 
   ## Valid `options`
-  - `sync :: boolean()` Whether to publish synchronously or not. If `sync` is `true`, the underlying ETS table
-     will have been updated, and all subsribers notified, before the function returns
-  - `force :: boolean()` Whether to force publication to remote nodes regardless of the existence of subscribers
+  - `:sync :: boolean()` Whether to publish synchronously or not. If `sync` is `true`, the underlying ETS table
+     will have been updated, and all subscribers notified, before the function returns
+  - `:remote_publish :: true | false | :default` How to decide whether to publish to remote nodes
+    - `true` Force publishing, even if no remote subscribers exist
+    - `false` Do not publish, even if remote subscribers exist
+    - `:default` Publish according to whether remote subscribers exist
   """
   def _internal_publish(topic, message, options \\ []) do
     topic = fully_qualified_topic_name(topic)
@@ -56,7 +59,7 @@ defmodule Babble.PubWorker do
   end
 
   @impl true
-  def handle_call(msg = {:publish, message, options}, _, state) do
+  def handle_call(msg = {:publish, _message, _options}, _, state) do
     {:noreply, new_state} = handle_cast(msg, state)
     {:reply, :ok, new_state}
   end
@@ -92,10 +95,47 @@ defmodule Babble.PubWorker do
         []
     end
 
+    # Publish to remote subscribers
+    for pub_node <- get_publication_nodes(topic, options) do
+      :rpc.cast(pub_node, __MODULE__, :_internal_publish, [
+        topic,
+        message,
+        [remote_publish: false]
+      ])
+    end
+
     {:noreply, state}
   end
 
+  # Helpers
+
   defp worker_name(topic) do
     String.to_atom(Atom.to_string(__MODULE__) <> "_" <> Atom.to_string(topic))
+  end
+
+  defp get_publication_nodes(topic, options) do
+    remote_pub = options[:remote_publish]
+
+    cond do
+      remote_pub == true ->
+        Node.list()
+
+      remote_pub == false ->
+        []
+
+      true ->
+        Enum.filter(Node.list(), fn node -> is_remote_subscriber?(node, topic) end)
+    end
+  end
+
+  defp is_remote_subscriber?(node, topic) do
+    with {:ok, [subs]} <-
+           Babble.poll({node, @subscription_topic}, [fully_qualified_topic_name(topic)]),
+         true <- map_size(subs) > 0 do
+      true
+    else
+      _ ->
+        false
+    end
   end
 end

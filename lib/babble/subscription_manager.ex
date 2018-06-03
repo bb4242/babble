@@ -37,7 +37,12 @@ defmodule Babble.SubscriptionManager do
     new_subs = Map.put(existing_subs, pid, options)
 
     :ok =
-      Babble.PubWorker._internal_publish(@subscription_topic, %{topic => new_subs}, sync: true)
+      Babble.PubWorker._internal_publish(
+        @subscription_topic,
+        %{topic => new_subs},
+        sync: true,
+        remote_publish: true
+      )
 
     monitor =
       case Map.fetch(monitors, pid) do
@@ -60,7 +65,8 @@ defmodule Babble.SubscriptionManager do
           Babble.PubWorker._internal_publish(
             @subscription_topic,
             %{topic => new_subs},
-            sync: true
+            sync: true,
+            remote_publish: true
           )
 
       _ ->
