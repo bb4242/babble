@@ -14,7 +14,7 @@ defmodule Babble.MixProject do
         "coveralls.detail": :test,
         "coveralls.post": :test,
         "coveralls.html": :test
-      ]
+      ],
     ]
   end
 
@@ -40,4 +40,5 @@ defmodule Babble.MixProject do
       {:remix, "~> 0.0.1", only: :dev}
     ]
   end
+
 end

@@ -44,7 +44,7 @@ defmodule Babble.Utils do
     |> fully_qualified_topic_name
     |> Atom.to_string()
     |> String.split(":")
-    |> hd
+    |> Enum.at(0)
     |> String.to_atom()
   end
 end

@@ -90,18 +90,7 @@ defmodule Babble.PubWorker do
     :ets.insert(topic, msg_kw)
 
     # Publish to all local subscribers
-    case Babble.poll(@subscription_topic, [topic]) do
-      {:ok, [subs]} ->
-        # Get the pid and subscription rate for all subscribers who want delivery
-        for {pid, sub} <- subs, sub[:deliver] do
-          # TODO: Handle decimated delivery specified by sub[:rate]
-          # TODO: include timestamp
-          Process.send(pid, {:babble_msg, topic, msg_map}, [])
-        end
-
-      {:error, _} ->
-        []
-    end
+    send_to_local_subscribers(topic, {:babble_msg, topic, msg_map})
 
     # Publish to remote subscribers
     for pub_node <- get_publication_nodes(topic, options) do
@@ -117,8 +106,8 @@ defmodule Babble.PubWorker do
 
 
   @impl true
-  def handle_info({:nodedown, node}, state = %State{node: node}) do
-    IO.puts("Delete table for #{inspect node}")
+  def handle_info({:nodedown, node}, state = %State{node: node, topic: topic}) do
+    send_to_local_subscribers(topic, {:babble_remote_topic_disconnect, topic})
     {:stop, :normal, state}
   end
 
@@ -126,6 +115,21 @@ defmodule Babble.PubWorker do
 
 
   # Helpers
+
+  defp send_to_local_subscribers(topic, msg) do
+    case Babble.poll(@subscription_topic, [topic]) do
+      {:ok, [subs]} ->
+        # Get the pid and subscription rate for all subscribers who want delivery
+        for {pid, sub} <- subs, sub[:deliver] do
+          # TODO: Handle decimated delivery specified by sub[:rate]
+          # TODO: include timestamp
+          Process.send(pid, msg, [])
+        end
+
+      {:error, _} ->
+        []
+    end
+  end
 
   defp worker_name(topic) do
     String.to_atom(Atom.to_string(__MODULE__) <> "_" <> Atom.to_string(topic))
