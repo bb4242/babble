@@ -99,7 +99,11 @@ defmodule Babble do
   """
   @spec unsubscribe(topic :: topic) :: :ok
   def unsubscribe(topic) do
-    :ok
+    :ok =
+      GenServer.call(
+        Babble.SubscriptionManager,
+        {:unsubscribe, fully_qualified_topic_name(topic)}
+      )
   end
 
   @doc """

@@ -2,6 +2,9 @@ defmodule Babble.SubscriptionManager do
   use GenServer
 
   defmodule State do
+    @doc """
+    `monitors` - map(pid() => monitor ref)
+    """
     defstruct monitors: %{}
   end
 
@@ -32,7 +35,9 @@ defmodule Babble.SubscriptionManager do
       end
 
     new_subs = Map.put(existing_subs, pid, options)
-    :ok = Babble.publish(@subscription_topic, [{topic, new_subs}])
+
+    :ok =
+      Babble.PubWorker._internal_publish(@subscription_topic, %{topic => new_subs}, sync: true)
 
     monitor =
       case Map.fetch(monitors, pid) do
@@ -42,6 +47,27 @@ defmodule Babble.SubscriptionManager do
 
     monitors = Map.put(monitors, pid, monitor)
     {:reply, :ok, %{state | monitors: monitors}}
+  end
+
+  def handle_call({:unsubscribe, topic}, {pid, _tag}, state) do
+    case Babble.poll(@subscription_topic, [topic]) do
+      {:ok, [subs]} ->
+        new_subs = Map.drop(subs, [pid])
+
+        # Publish synchronously to guarantee the unsubscribing process will not receive any messages
+        # it sends to the topic after the unsubscription call finishes
+        :ok =
+          Babble.PubWorker._internal_publish(
+            @subscription_topic,
+            %{topic => new_subs},
+            sync: true
+          )
+
+      _ ->
+        :ok
+    end
+
+    {:reply, :ok, state}
   end
 
   @impl true

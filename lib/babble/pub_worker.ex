@@ -18,13 +18,14 @@ defmodule Babble.PubWorker do
   end
 
   @doc """
-  Internal publication API.  Use Babble.publish instead. :)
+  Internal publication API.  Use `Babble.publish/2` instead. :)
 
-    iex> Babble.publish("my.topic", key1: :val1, key2: :val2)
-    :ok
-
+  ## Valid `options`
+  - `sync :: boolean()` Whether to publish synchronously or not. If `sync` is `true`, the underlying ETS table
+     will have been updated, and all subsribers notified, before the function returns
+  - `force :: boolean()` Whether to force publication to remote nodes regardless of the existence of subscribers
   """
-  def _internal_publish(topic, message, force \\ false) do
+  def _internal_publish(topic, message, options \\ []) do
     topic = fully_qualified_topic_name(topic)
 
     pid =
@@ -37,7 +38,13 @@ defmodule Babble.PubWorker do
           existing_worker
       end
 
-    GenServer.cast(pid, {:publish, message, force})
+    fun =
+      case options[:sync] do
+        true -> &GenServer.call/2
+        _ -> &GenServer.cast/2
+      end
+
+    fun.(pid, {:publish, message, options})
   end
 
   # Server callbacks
@@ -49,8 +56,14 @@ defmodule Babble.PubWorker do
   end
 
   @impl true
+  def handle_call(msg = {:publish, message, options}, _, state) do
+    {:noreply, new_state} = handle_cast(msg, state)
+    {:reply, :ok, new_state}
+  end
+
+  @impl true
   def handle_cast(
-        {:publish, message, force},
+        {:publish, message, options},
         state = %State{topic: topic, next_pub_times: next_pub_times}
       ) do
     # TODO: Insert timestamp into update
