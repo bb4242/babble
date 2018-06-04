@@ -42,6 +42,7 @@ defmodule BabbleTest do
   @topic "test.remote.topic"
   @slaves [:"test-slave1@127.0.01", :"test-slave2@127.0.01", :"test-slave3@127.0.01"]
 
+  @tag :cluster
   test "cluster pub/sub" do
     for slave <- @slaves do
       # TODO: subscribe to all_nodes topic
@@ -61,7 +62,7 @@ defmodule BabbleTest do
     end
 
     for slave <- @slaves do
-      assert_receive {:nodeup, slave}, 5000
+      assert_receive {:nodeup, ^slave}, 5000
       on_exit(fn -> :slave.stop(slave) end)
     end
 
