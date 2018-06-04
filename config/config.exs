@@ -33,11 +33,13 @@ if Mix.env() == :dev do
   config :remix,
     escript: true,
     silent: true
+
+  config :pre_commit,
+    commands: ["format --check-formatted --dry-run"],
+    verbose: true
 end
 
 if Mix.env() == :test do
   config :junit_formatter,
     report_dir: "/tmp/babble-test-results/exunit"
 end
-
-config :pre_commit, commands: ["format --check-formatted --dry-run"], verbose: true
