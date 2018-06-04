@@ -1,5 +1,8 @@
 # Babble
 
+[![Build status badge](https://img.shields.io/circleci/project/github/bb4242/babble/master.svg)](https://circleci.com/gh/bb4242/babble/tree/master)
+[![Code coverage badge](https://img.shields.io/codecov/c/github/bb4242/babble/master.svg)](https://codecov.io/gh/bb4242/babble/branch/master)
+
 **TODO: Add description**
 
 ## Installation
