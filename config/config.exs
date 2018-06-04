@@ -35,7 +35,7 @@ if Mix.env() == :dev do
     silent: true
 
   config :pre_commit,
-    commands: ["format --check-formatted --dry-run"],
+    commands: ["format --check-formatted --dry-run", "test"],
     verbose: true
 end
 
