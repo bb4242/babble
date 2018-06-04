@@ -31,7 +31,12 @@ defmodule Babble do
   end
 
   @doc """
-  Subscribe to a topic.
+  Subscribe to a topic.  `topic` can be:
+    * A simple string like `"my.topic"`, corresponding to a local topic
+    * A `{node, name}` tuple like `{:"node@host", "my.topic"}`, corresponding to a topic
+      published by the node `:"node@host"`
+    * A wildcard topic like `{:*, "my.topic"}`. This will subscribe to `"my.topic"` published
+      by all nodes.
 
   ## Options
 
@@ -50,7 +55,7 @@ defmodule Babble do
     * `:deliver :: bool()` - Whether to deliver messages to the subscriber process.
 
       * If `:deliver` is `true`, the subscribing process will receive messages of the form
-      `{:babble_msg, topic :: topic, message :: map(), timestamp :: float()}` when new topic data arrives.
+      `{:babble_msg, {topic_node, topic_name}, message :: map(), timestamp :: float()}` when new topic data arrives.
 
       * If the topic is remote, a subscription is always required to cause it to be transmitted
       over the network. However, the subscribing process may wish to access the topic data

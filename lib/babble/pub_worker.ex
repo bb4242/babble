@@ -112,8 +112,13 @@ defmodule Babble.PubWorker do
 
   # Helpers
 
-  defp send_to_local_subscribers(topic, msg) do
-    case Babble.poll(@subscription_topic, [topic]) do
+  defp send_to_local_subscribers({pub_node, short_name}, msg) do
+    send_to_local_subscribers(pub_node, short_name, msg)
+    send_to_local_subscribers(:*, short_name, msg)
+  end
+
+  defp send_to_local_subscribers(node, short_name, msg) do
+    case Babble.poll(@subscription_topic, [{node, short_name}]) do
       {:ok, [subs]} ->
         # Get the pid and subscription rate for all subscribers who want delivery
         for {pid, sub} <- subs, sub[:deliver] do
@@ -142,9 +147,13 @@ defmodule Babble.PubWorker do
     end
   end
 
-  defp is_remote_subscriber?(node, topic) do
-    with {:ok, [subs]} <-
-           Babble.poll({node, @subscription_topic}, [fully_qualified_topic_name(topic)]),
+  defp is_remote_subscriber?(sub_node, {pub_node, short_name}) do
+    is_remote_subscriber?(sub_node, pub_node, short_name) or
+      is_remote_subscriber?(sub_node, :*, short_name)
+  end
+
+  defp is_remote_subscriber?(sub_node, pub_node, short_name) do
+    with {:ok, [subs]} <- Babble.poll({sub_node, @subscription_topic}, [{pub_node, short_name}]),
          true <- map_size(subs) > 0 do
       true
     else

@@ -39,15 +39,19 @@ defmodule BabbleTest do
     refute_receive _
   end
 
-  @topic "test.remote.topic"
+  @topic1 "test.remote.topic1"
+  @topic2 "test.remote.topic2"
   @slaves [:"test-slave1@127.0.01", :"test-slave2@127.0.01", :"test-slave3@127.0.01"]
 
   @tag :cluster
   test "cluster pub/sub" do
+    # Subscribe to topics by node individually
     for slave <- @slaves do
-      # TODO: subscribe to all_nodes topic
-      Babble.subscribe({slave, @topic})
+      Babble.subscribe({slave, @topic1})
     end
+
+    # Subscribe to wildcard topic
+    Babble.subscribe({:*, @topic2})
 
     # Start the slave after subscribing so that we test subscription synchronization
     # on node connection
@@ -67,21 +71,26 @@ defmodule BabbleTest do
 
     for slave <- @slaves do
       assert_receive {:nodeup, ^slave}, 5000
-    end
 
-    for slave <- @slaves do
-      msg = %{key1: :val1, key2: :val2}
-      :ok = :rpc.call(slave, Babble, :publish, [@topic, msg])
+      msg1 = %{key1: :val1, key2: :val2}
+      msg2 = %{key1: 1, key2: 2}
+      :ok = :rpc.call(slave, Babble, :publish, [@topic1, msg1])
+      :ok = :rpc.call(slave, Babble, :publish, [@topic2, msg2])
 
-      fq_topic = {slave, @topic}
-      assert_receive {:babble_msg, ^fq_topic, ^msg}
-      {:ok, ^msg} = Babble.poll(fq_topic)
+      fq_topic1 = {slave, @topic1}
+      fq_topic2 = {slave, @topic2}
+      assert_receive {:babble_msg, ^fq_topic1, ^msg1}
+      assert_receive {:babble_msg, ^fq_topic2, ^msg2}
+      {:ok, ^msg1} = Babble.poll(fq_topic1)
+      {:ok, ^msg2} = Babble.poll(fq_topic2)
 
       # Test that the remote topic gets cleaned up after node disconnection
       :slave.stop(slave)
-      assert_receive {:babble_remote_topic_disconnect, ^fq_topic}
+      assert_receive {:babble_remote_topic_disconnect, ^fq_topic1}
+      assert_receive {:babble_remote_topic_disconnect, ^fq_topic2}
       Process.sleep(500)
-      {:error, _} = Babble.poll(fq_topic)
+      {:error, _} = Babble.poll(fq_topic1)
+      {:error, _} = Babble.poll(fq_topic2)
     end
   end
 end
