@@ -47,7 +47,9 @@ defmodule BabbleTest do
     # Start the slave after subscribing so that we test subscription synchronization
     # on node connection
     Port.open({:spawn, "elixir --name #{Atom.to_string(slave)} -S mix run --no-halt"}, [])
-    Process.sleep(1000)
+
+    # TODO: Eventually switch to libcluster and wait for slave to connect
+    Process.sleep(3000)
     :pong = Node.ping(slave)
     Process.sleep(1000)
 
