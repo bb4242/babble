@@ -40,4 +40,4 @@ if Mix.env() == :test do
     report_dir: "/tmp/babble-test-results/exunit"
 end
 
-config :pre_commit, commands: ["format"], verbose: true
+config :pre_commit, commands: ["format --check-formatted"], verbose: true
