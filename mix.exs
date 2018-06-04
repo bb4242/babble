@@ -39,7 +39,9 @@ defmodule Babble.MixProject do
       {:excoveralls, "~> 0.8.2", only: :test},
       {:remix, "~> 0.0.1", only: :dev},
       {:junit_formatter, "~> 2.1", only: :test},
-      {:pre_commit, "~> 0.2.4", only: :dev},
+
+
+      {:pre_commit, "~> 0.2.4", only: :dev}
     ]
   end
 end
