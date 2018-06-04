@@ -39,3 +39,5 @@ if Mix.env() == :test do
   config :junit_formatter,
     report_dir: "/tmp/babble-test-results/exunit"
 end
+
+config :pre_commit, commands: ["format"], verbose: true
