@@ -56,14 +56,17 @@ defmodule BabbleTest do
     for slave <- @slaves do
       Port.open(
         {:spawn,
-         "elixir --name #{Atom.to_string(slave)} --cookie #{Atom.to_string(Node.get_cookie())} -S mix run --no-halt"},
+         "./test/priv/launch_wrapper.sh elixir --name #{Atom.to_string(slave)} --cookie #{
+           Atom.to_string(Node.get_cookie())
+         } -S mix run --no-halt"},
         [{:env, [{'MIX_ENV', 'test'}]}]
       )
+
+      on_exit(fn -> :slave.stop(slave) end)
     end
 
     for slave <- @slaves do
       assert_receive {:nodeup, ^slave}, 5000
-      on_exit(fn -> :slave.stop(slave) end)
     end
 
     for slave <- @slaves do
@@ -80,9 +83,5 @@ defmodule BabbleTest do
       Process.sleep(500)
       {:error, _} = Babble.poll(fq_topic)
     end
-
-    # Make sure we shut down the node
-    # TODO: Wrap the Port.open call in a wrapper to prevent zombie processes
-    # https://hexdocs.pm/elixir/Port.html#module-zombie-processes
   end
 end
