@@ -2,21 +2,24 @@ defmodule Babble.Utils do
   @moduledoc "Babble utility functions"
 
   @doc """
-  Get the fully qualified name for a given topic, as an atom
+  Get the fully qualified name for a given topic
 
   ## Examples
 
   ```
   iex> Babble.Utils.fully_qualified_topic_name({:"node@host", "my.topic"})
-  :"node@host:my.topic"
+  {:"node@host", "my.topic"}
 
   iex> Babble.Utils.fully_qualified_topic_name(:"node@host:my.topic")
-  :"node@host:my.topic"
+  {:"node@host", "my.topic"}
+
+  iex> Babble.Utils.fully_qualified_topic_name("node@host:my.topic")
+  {:"node@host", "my.topic"}
   ```
   """
   @spec fully_qualified_topic_name(Babble.topic()) :: atom()
-  def fully_qualified_topic_name({node, topic}) when is_atom(node) do
-    String.to_atom("#{node}:#{topic}")
+  def fully_qualified_topic_name({node, topic}) when is_atom(node) and is_binary(topic) do
+    {node, topic}
   end
 
   def fully_qualified_topic_name(topic) when is_atom(topic) do
@@ -25,9 +28,10 @@ defmodule Babble.Utils do
 
   def fully_qualified_topic_name(topic) when is_binary(topic) do
     if String.contains?(topic, ":") do
-      String.to_atom(topic)
+      [node, local_name] = String.split(topic, ":")
+      {String.to_atom(node), local_name}
     else
-      String.to_atom("#{Node.self()}:#{topic}")
+      {Node.self(), topic}
     end
   end
 
@@ -40,11 +44,20 @@ defmodule Babble.Utils do
   ```
   """
   def get_topic_node(topic) do
-    topic
-    |> fully_qualified_topic_name
-    |> Atom.to_string()
-    |> String.split(":")
-    |> Enum.at(0)
-    |> String.to_atom()
+    {node, _} = fully_qualified_topic_name(topic)
+    node
+  end
+
+  @doc """
+  Get the ETS table name for the given topic
+
+  ```
+  iex> Babble.Utils.table_name(:"node@host:my.topic")
+  :"Babble:node@host:my.topic"
+
+  """
+  def table_name(topic) do
+    {node, local_name} = fully_qualified_topic_name(topic)
+    String.to_atom("Babble:" <> Atom.to_string(node) <> ":" <> local_name)
   end
 end

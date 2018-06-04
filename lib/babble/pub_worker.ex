@@ -9,13 +9,13 @@ defmodule Babble.PubWorker do
 
   defmodule State do
     @moduledoc "State for PubWorker"
-    @enforce_keys [:topic, :node]
-    defstruct [{:next_pub_times, %{}}, :topic, :node]
+    @enforce_keys [:topic, :table]
+    defstruct [{:next_pub_times, %{}}, :topic, :table]
   end
 
   # Client API
   def start_link(topic) do
-    GenServer.start_link(__MODULE__, topic, name: worker_name(topic))
+    GenServer.start_link(__MODULE__, topic, name: table_name(topic))
   end
 
   @doc """
@@ -30,10 +30,8 @@ defmodule Babble.PubWorker do
     - `:default` Publish according to whether remote subscribers exist
   """
   def _internal_publish(topic, message, options \\ []) do
-    topic = fully_qualified_topic_name(topic)
-
     pid =
-      case Process.whereis(worker_name(topic)) do
+      case Process.whereis(table_name(topic)) do
         nil ->
           {:ok, new_worker} = start_link(topic)
           new_worker
@@ -54,18 +52,18 @@ defmodule Babble.PubWorker do
   # Server callbacks
   @impl true
   def init(topic) do
-    topic = fully_qualified_topic_name(topic)
-    ^topic = :ets.new(topic, [:named_table, :protected, :set])
+    topic = {node, _} = fully_qualified_topic_name(topic)
+    table = table_name(topic)
+    # TODO: Set heir on table, and re-acquire if it already exists
+    ^table = :ets.new(table, [:named_table, :protected, :set])
 
     # If this is a remote topic, monitor the remote node so we can
     # delete the table when the node goes down
-    node = get_topic_node(topic)
-
     if node != Node.self() do
       Node.monitor(node, true)
     end
 
-    {:ok, %State{topic: topic, node: node}}
+    {:ok, %State{topic: topic, table: table}}
   end
 
   @impl true
@@ -77,7 +75,7 @@ defmodule Babble.PubWorker do
   @impl true
   def handle_cast(
         {:publish, message, options},
-        state = %State{topic: topic, next_pub_times: _next_pub_times}
+        state = %State{topic: topic, table: table, next_pub_times: _next_pub_times}
       ) do
     # TODO: Insert timestamp into update
 
@@ -89,7 +87,7 @@ defmodule Babble.PubWorker do
         {message, Enum.into(message, %{})}
       end
 
-    :ets.insert(topic, msg_kw)
+    :ets.insert(table, msg_kw)
 
     # Publish to all local subscribers
     send_to_local_subscribers(topic, {:babble_msg, topic, msg_map})
@@ -107,7 +105,7 @@ defmodule Babble.PubWorker do
   end
 
   @impl true
-  def handle_info({:nodedown, node}, state = %State{node: node, topic: topic}) do
+  def handle_info({:nodedown, node}, state = %State{topic: topic = {node, _}}) do
     send_to_local_subscribers(topic, {:babble_remote_topic_disconnect, topic})
     {:stop, :normal, state}
   end
@@ -127,10 +125,6 @@ defmodule Babble.PubWorker do
       {:error, _} ->
         []
     end
-  end
-
-  defp worker_name(topic) do
-    String.to_atom(Atom.to_string(__MODULE__) <> "_" <> Atom.to_string(topic))
   end
 
   defp get_publication_nodes(topic, options) do

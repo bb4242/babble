@@ -112,14 +112,12 @@ defmodule Babble do
   @spec poll(topic :: topic, keys :: list() | :all, stale_time :: float()) ::
           {:ok, list()} | {:error, reason :: String.t()}
   def poll(topic, keys \\ :all, _stale_time \\ :none) do
-    topic = fully_qualified_topic_name(topic)
-
     try do
-      table_vals = :ets.tab2list(topic)
+      table_vals = topic |> table_name() |> :ets.tab2list() |> Enum.into(%{})
 
       case keys do
-        :all -> {:ok, table_vals |> Enum.into(%{})}
-        l when is_list(l) -> {:ok, for(key <- keys, do: Keyword.fetch!(table_vals, key))}
+        :all -> {:ok, table_vals}
+        l when is_list(l) -> {:ok, for(key <- keys, do: Map.fetch!(table_vals, key))}
       end
     rescue
       # TODO: Give better error messages (topic not found, key not found, topic is stale)
