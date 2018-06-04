@@ -38,8 +38,9 @@ defmodule Babble.MixProject do
       {:credo, "~> 0.9.2", only: :dev, runtime: false},
       {:excoveralls, "~> 0.8.2", only: :test},
       {:remix, "~> 0.0.1", only: :dev},
+      {:pre_commit, github: "bb4242/elixir-pre-commit", tag: "cdef380", only: :dev},
       {:junit_formatter, "~> 2.1", only: :test},
-      {:pre_commit, github: "bb4242/elixir-pre-commit", tag: "cdef380", only: :dev}
+      {:libcluster, "~> 2.5", only: :test}
     ]
   end
 end

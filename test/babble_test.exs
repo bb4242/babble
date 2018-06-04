@@ -46,12 +46,17 @@ defmodule BabbleTest do
 
     # Start the slave after subscribing so that we test subscription synchronization
     # on node connection
-    Port.open({:spawn, "elixir --name #{Atom.to_string(slave)} -S mix run --no-halt"}, [])
+    :ok = :net_kernel.monitor_nodes(true)
 
-    # TODO: Eventually switch to libcluster and wait for slave to connect
-    Process.sleep(3000)
-    :pong = Node.ping(slave)
-    Process.sleep(1000)
+    port =
+      Port.open(
+        {:spawn,
+         "elixir --name #{Atom.to_string(slave)} --cookie #{Atom.to_string(Node.get_cookie())} -S mix run --no-halt"},
+        [{:env, [{'MIX_ENV', 'test'}]}]
+      )
+
+    on_exit(fn -> :rpc.cast(slave, :init, :stop, []) end)
+    assert_receive {:nodeup, slave}, 5000
 
     msg = %{key1: :val1, key2: :val2}
     :ok = :rpc.call(slave, Babble, :publish, [@topic, msg])
@@ -69,6 +74,5 @@ defmodule BabbleTest do
     # Make sure we shut down the node
     # TODO: Wrap the Port.open call in a wrapper to prevent zombie processes
     # https://hexdocs.pm/elixir/Port.html#module-zombie-processes
-    :rpc.cast(slave, :init, :stop, [])
   end
 end
