@@ -37,7 +37,8 @@ defmodule Babble.MixProject do
       {:dialyxir, "~> 0.5", only: :dev, runtime: false},
       {:credo, "~> 0.9.2", only: :dev, runtime: false},
       {:excoveralls, "~> 0.8.2", only: :test},
-      {:remix, "~> 0.0.1", only: :dev}
+      {:remix, "~> 0.0.1", only: :dev},
+      {:junit_formatter, "~> 2.1", only: :test}
     ]
   end
 end

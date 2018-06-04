@@ -34,3 +34,8 @@ if Mix.env() == :dev do
     escript: true,
     silent: true
 end
+
+if Mix.env() == :test do
+  config :junit_formatter,
+    report_dir: "/tmp/babble-test-results/exunit"
+end
