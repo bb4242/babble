@@ -24,13 +24,13 @@ be found at [https://hexdocs.pm/babble](https://hexdocs.pm/babble).
 
 ## TODO
 
-- 🗴 Honor `:rate` parameter of `Babble.subscribe` (rate decimation)
-- 🗴 Remote publication (native transport)
-- 🗴 Remote publication (UDP multicast transport)
-- 🗴 Efficient message format
-  - 🗴 Message keys published separately from message values
-  - 🗴 Compression
-  - 🗴 HMAC based on node cookie to filter messages from other node clusters
-- 🗴 Message timestamps
-  - 🗴 Honor `:stale_time` parameter of `Babble.poll`
-- 🗴 Multi-node test suite
+- [ ] Honor `:rate` parameter of `Babble.subscribe` (rate decimation)
+- [x] Remote publication (native transport)
+- [ ] Remote publication (UDP multicast transport)
+- [ ] Efficient message format
+  - [ ] Message keys published separately from message values
+  - [ ] Compression
+  - [ ] HMAC based on node cookie to filter messages from other node clusters
+- [ ] Message timestamps
+  - [ ] Honor `:stale_time` parameter of `Babble.poll`
+- [ ] Multi-node test suite
