@@ -40,7 +40,7 @@ defmodule Babble.MixProject do
       {:remix, "~> 0.0.1", only: :dev},
       {:pre_commit, github: "bb4242/elixir-pre-commit", tag: "cdef380", only: :dev},
       {:junit_formatter, "~> 2.1", only: :test},
-      {:libcluster, "~> 2.5", only: :test}
+      {:libcluster, "~> 2.5", runtime: false}
     ]
   end
 end

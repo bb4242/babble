@@ -19,6 +19,8 @@ defmodule Babble.Application do
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :rest_for_one, name: Babble.Supervisor]
-    Supervisor.start_link(children, opts)
+    res = Supervisor.start_link(children, opts)
+    {:ok, _} = Application.ensure_all_started(:libcluster, :permanent)
+    res
   end
 end
