@@ -39,6 +39,21 @@ defmodule BabbleTest do
     refute_receive _
   end
 
+  test "tables persist after PubWorker dies" do
+    :ok = Babble.subscribe(@topic)
+
+    msg = %{key1: [1, 2, 3], key2: 42}
+    Babble.publish(@topic, msg)
+
+    fq_topic = Babble.Utils.fully_qualified_topic_name(@topic)
+    assert_receive {:babble_msg, ^fq_topic, ^msg}
+    {:ok, ^msg} = Babble.poll(@topic)
+
+    # Kill the PubWorker for this topic and make sure the topic data persists
+    @topic |> Babble.Utils.table_name() |> Process.whereis() |> Process.exit(:kill)
+    {:ok, ^msg} = Babble.poll(@topic)
+  end
+
   @topic1 "test.remote.topic1"
   @topic2 "test.remote.topic2"
   @slaves [:"test-slave1@127.0.01", :"test-slave2@127.0.01", :"test-slave3@127.0.01"]
