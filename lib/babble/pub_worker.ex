@@ -56,16 +56,7 @@ defmodule Babble.PubWorker do
   def init(topic) do
     topic = {node, _} = fully_qualified_topic_name(topic)
     table = table_name(topic)
-
-    # Don't set a table heir for remote topics, so that the table will be cleaned
-    # up when the remote node goes away
-    set_heir =
-      case Node.self() do
-        ^node -> true
-        _ -> false
-      end
-
-    {:ok, ^table} = Babble.TableHeir.get_table(table, set_heir)
+    {:ok, ^table} = Babble.TableHeir.get_table(table)
 
     # If this is a remote topic, monitor the remote node so we can
     # delete the table when the node goes down
@@ -115,8 +106,9 @@ defmodule Babble.PubWorker do
   end
 
   @impl true
-  def handle_info({:nodedown, node}, state = %State{topic: topic = {node, _}}) do
+  def handle_info({:nodedown, node}, state = %State{topic: topic = {node, _}, table: table}) do
     send_to_local_subscribers(topic, {:babble_remote_topic_disconnect, topic})
+    :ets.delete(table)
     {:stop, :normal, state}
   end
 

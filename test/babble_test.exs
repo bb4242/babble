@@ -61,6 +61,7 @@ defmodule BabbleTest do
 
     # Kill the PubWorker for this topic and make sure the topic data persists
     @topic |> Babble.Utils.table_name() |> Process.whereis() |> Process.exit(:kill)
+    Process.sleep(500)
     {:ok, ^msg} = Babble.poll(@topic)
   end
 
@@ -115,11 +116,17 @@ defmodule BabbleTest do
       {:ok, ^msg1} = Babble.poll(fq_topic1)
       {:ok, ^msg2} = Babble.poll(fq_topic2)
 
+      # Make sure remote tables don't disappear if the PubWorker dies
+      fq_topic1 |> Babble.Utils.table_name() |> Process.whereis() |> Process.exit(:kill)
+      Process.sleep(100)
+      {:ok, ^msg1} = Babble.poll(fq_topic1)
+
       # Test that the remote topic gets cleaned up after node disconnection
-      :slave.stop(slave)
-      assert_receive {:babble_remote_topic_disconnect, ^fq_topic1}
-      assert_receive {:babble_remote_topic_disconnect, ^fq_topic2}
-      Process.sleep(500)
+      :ok = :rpc.call(slave, :init, :stop, [])
+      assert_receive {:nodedown, ^slave}, 5000
+      assert_receive {:babble_remote_topic_disconnect, ^fq_topic1}, 5000
+      assert_receive {:babble_remote_topic_disconnect, ^fq_topic2}, 5000
+      Process.sleep(100)
       {:error, _} = Babble.poll(fq_topic1)
       {:error, _} = Babble.poll(fq_topic2)
     end
