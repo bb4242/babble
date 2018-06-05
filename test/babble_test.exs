@@ -124,8 +124,8 @@ defmodule BabbleTest do
       # Test that the remote topic gets cleaned up after node disconnection
       :ok = :rpc.call(slave, :init, :stop, [])
       assert_receive {:nodedown, ^slave}, 5000
-      assert_receive {:babble_remote_topic_disconnect, ^fq_topic1}, 5000
-      assert_receive {:babble_remote_topic_disconnect, ^fq_topic2}, 5000
+      assert_receive {:babble_remote_topic_disconnect, ^fq_topic1}
+      assert_receive {:babble_remote_topic_disconnect, ^fq_topic2}
       Process.sleep(100)
       {:error, _} = Babble.poll(fq_topic1)
       {:error, _} = Babble.poll(fq_topic2)

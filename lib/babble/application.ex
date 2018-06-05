@@ -11,7 +11,8 @@ defmodule Babble.Application do
       # Starts a worker by calling: Babble.Worker.start_link(arg)
       # {Babble.Worker, arg},
       {Babble.TableHeir, []},
-      {DynamicSupervisor, name: Babble.PubWorkerSupervisor, strategy: :one_for_one},
+      {DynamicSupervisor,
+       name: Babble.PubWorkerSupervisor, strategy: :one_for_one, max_restarts: 10, max_seconds: 3},
       {Babble.SubscriptionManager, []},
       {Babble.NodeMonitor, []}
     ]
