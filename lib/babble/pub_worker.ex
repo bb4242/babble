@@ -2,7 +2,7 @@ defmodule Babble.PubWorker do
   @moduledoc """
   Per-topic worker process responsible for delivering published messages to subscribers
   """
-  use GenServer
+  use GenServer, restart: :transient
   use Babble.Constants
 
   import Babble.Utils
@@ -56,7 +56,16 @@ defmodule Babble.PubWorker do
   def init(topic) do
     topic = {node, _} = fully_qualified_topic_name(topic)
     table = table_name(topic)
-    {:ok, ^table} = Babble.TableHeir.get_table(table, [:set])
+
+    # Don't set a table heir for remote topics, so that the table will be cleaned
+    # up when the remote node goes away
+    set_heir =
+      case Node.self() do
+        ^node -> true
+        _ -> false
+      end
+
+    {:ok, ^table} = Babble.TableHeir.get_table(table, set_heir)
 
     # If this is a remote topic, monitor the remote node so we can
     # delete the table when the node goes down
