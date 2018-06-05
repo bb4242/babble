@@ -41,6 +41,14 @@ defmodule BabbleTest do
     refute_receive _
   end
 
+  test "get table twice from TableHeir" do
+    table = :table_heir_test
+    {:ok, table} = Babble.TableHeir.get_table(table)
+    :ets.insert(table, key1: 42)
+    {:ok, table} = Babble.TableHeir.get_table(table)
+    :ets.insert(table, key1: 42)
+  end
+
   test "tables persist after PubWorker dies" do
     :ok = Babble.subscribe(@topic)
 
