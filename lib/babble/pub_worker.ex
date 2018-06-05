@@ -33,7 +33,9 @@ defmodule Babble.PubWorker do
     pid =
       case Process.whereis(table_name(topic)) do
         nil ->
-          {:ok, new_worker} = start_link(topic)
+          {:ok, new_worker} =
+            DynamicSupervisor.start_child(Babble.PubWorkerSupervisor, {__MODULE__, topic})
+
           new_worker
 
         existing_worker when is_pid(existing_worker) ->
@@ -54,8 +56,7 @@ defmodule Babble.PubWorker do
   def init(topic) do
     topic = {node, _} = fully_qualified_topic_name(topic)
     table = table_name(topic)
-    # TODO: Set heir on table, and re-acquire if it already exists
-    ^table = :ets.new(table, [:named_table, :protected, :set])
+    {:ok, ^table} = Babble.TableHeir.get_table(table, [:set])
 
     # If this is a remote topic, monitor the remote node so we can
     # delete the table when the node goes down

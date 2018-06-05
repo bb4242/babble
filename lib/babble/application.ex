@@ -10,8 +10,9 @@ defmodule Babble.Application do
     children = [
       # Starts a worker by calling: Babble.Worker.start_link(arg)
       # {Babble.Worker, arg},
-      {Babble.SubscriptionManager, []},
+      {Babble.TableHeir, []},
       {DynamicSupervisor, name: Babble.PubWorkerSupervisor, strategy: :one_for_one},
+      {Babble.SubscriptionManager, []},
       {Babble.NodeMonitor, []}
     ]
 
