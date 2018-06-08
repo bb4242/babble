@@ -31,6 +31,22 @@ defmodule BabbleTest do
     {:ok, ^msg} = Babble.poll(@topic)
   end
 
+  test "local rate decimation" do
+    topic = "test.decimation"
+    :ok = Babble.subscribe(topic, rate: 1)
+
+    for msg_num <- 1..4 do
+      Babble.publish(topic, msg_num: msg_num)
+      Process.sleep(400)
+    end
+
+    fq_topic = Babble.Utils.fully_qualified_topic_name(topic)
+    assert_receive {:babble_msg, ^fq_topic, %{msg_num: 1}}
+    refute_receive {:babble_msg, ^fq_topic, %{msg_num: 2}}
+    refute_receive {:babble_msg, ^fq_topic, %{msg_num: 3}}
+    assert_receive {:babble_msg, ^fq_topic, %{msg_num: 4}}
+  end
+
   test "local unsubscribe" do
     :ok = Babble.subscribe(@topic)
     :ok = Babble.subscribe(@topic)
