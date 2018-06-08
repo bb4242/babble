@@ -48,7 +48,7 @@ defmodule Babble do
 
       * The default is `:on_publish`.
 
-    * `:transport :: :tcp | :udp_multicast` - The transport to use for transmitting remote topics over the network.
+    * `:transport :: :tcp | :udp` - The transport to use for transmitting remote topics over the network.
 
       * The default is `:tcp`.
 
@@ -82,8 +82,8 @@ defmodule Babble do
 
     transport = options[:transport]
 
-    if not (transport in [:tcp, :udp_multicast]) do
-      raise ArgumentError, message: ":transport must be :tcp or :udp_multicast"
+    if not (transport in [:tcp, :udp]) do
+      raise ArgumentError, message: ":transport must be :tcp or :udp"
     end
 
     deliver = options[:deliver]

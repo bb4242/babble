@@ -33,14 +33,14 @@ defmodule Babble.SubscriptionManager do
           {:error, _} -> %{}
         end
 
-      new_subs = Map.put(existing_subs, pid, options)
+      new_subs = Map.put(existing_subs, pid, Enum.into(options, %{}))
 
       :ok =
         Babble.PubWorker._internal_publish(
           @subscription_topic,
           %{topic => new_subs},
           sync: true,
-          remote_publish: true
+          remote_publish: :force
         )
 
       monitor =
@@ -66,7 +66,7 @@ defmodule Babble.SubscriptionManager do
             @subscription_topic,
             %{topic => new_subs},
             sync: true,
-            remote_publish: true
+            remote_publish: :force
           )
 
       _ ->
@@ -88,7 +88,7 @@ defmodule Babble.SubscriptionManager do
         @subscription_topic,
         all_subs,
         sync: true,
-        remote_publish: true
+        remote_publish: :force
       )
 
     # Remove pid from monitors

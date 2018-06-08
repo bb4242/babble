@@ -7,6 +7,9 @@ defmodule Babble.PubWorker do
 
   import Babble.Utils
 
+  import Babble.Transports.RemotePublisher,
+    only: [remote_publish: 7, update_pub_time: 4, update_pub_time: 3]
+
   defmodule State do
     @moduledoc "State for PubWorker"
     @enforce_keys [:pub_time_table, :topic, :table]
@@ -25,7 +28,7 @@ defmodule Babble.PubWorker do
   - `:sync :: boolean()` Whether to publish synchronously or not. If `sync` is `true`, the underlying ETS table
      will have been updated, and all subscribers notified, before the function returns
   - `:remote_publish :: true | false | :default` How to decide whether to publish to remote nodes
-    - `true` Force publishing, even if no remote subscribers exist
+    - `:force` Force publishing, even if no remote subscribers exist
     - `false` Do not publish, even if remote subscribers exist
     - `:default` Publish according to whether remote subscribers exist
   """
@@ -95,100 +98,140 @@ defmodule Babble.PubWorker do
 
     :ets.insert(table, msg_kw)
 
-    # Publish to all local subscribers
-    send_to_local_subscribers(topic, {:babble_msg, topic, msg_map}, pub_time_table)
-
-    # Publish to remote subscribers
-    for pub_node <- get_publication_nodes(topic, options) do
-      :rpc.cast(pub_node, __MODULE__, :_internal_publish, [
-        topic,
-        message,
-        [remote_publish: false]
-      ])
-    end
+    # Deliver to all subscribers
+    deliver(pub_time_table, topic, msg_map, options)
 
     {:noreply, state}
   end
 
   @impl true
   def handle_info({:nodedown, node}, state = %State{topic: topic = {node, _}, table: table}) do
-    send_to_local_subscribers(topic, {:babble_remote_topic_disconnect, topic})
+    for {sub_pid, _} <- get_subscribers(topic), node(sub_pid) == node() do
+      send(sub_pid, {:babble_remote_topic_disconnect, topic})
+    end
+
     :ets.delete(table)
     {:stop, :normal, state}
   end
 
   # Helpers
 
-  defp send_to_local_subscribers({pub_node, short_name}, msg, pub_time_table \\ nil) do
-    send_to_local_subscribers(pub_node, short_name, msg, pub_time_table)
-    send_to_local_subscribers(:*, short_name, msg, pub_time_table)
+  # TODO: Monitor all subscriber pids and delete their entries in pub_time_table when they exit
+
+  @doc """
+  Return a map of all (local and remote) subscribers to the topic
+  """
+  @spec get_subscribers({node(), String.t()}) :: %{pid() => %{}}
+  def get_subscribers(topic = {_pub_node, short_name}) do
+    # Get subscribers across all nodes, including the local one
+    # Include the wildcard topic
+    for n <- Node.list([:this, :connected]), t <- [topic, {:*, short_name}] do
+      case Babble.poll({n, @subscription_topic}, [t]) do
+        {:ok, [subs]} -> subs
+        _ -> %{}
+      end
+    end
+    |> List.foldl(%{}, &Map.merge/2)
   end
 
-  defp send_to_local_subscribers(node, short_name, msg, pub_time_table) do
+  def deliver(pub_time_table, topic, message, options) do
+    subs = get_subscribers(topic)
     now = System.monotonic_time(:milliseconds)
 
-    case Babble.poll(@subscription_topic, [{node, short_name}]) do
-      {:ok, [subs]} ->
-        # Get the pid and subscription rate for all subscribers who want delivery
-        for {pid, sub} <- subs, sub[:deliver] == true do
-          # TODO: include timestamp in message
-          rate = sub[:rate]
-
-          next_pub_time =
-            if is_nil(pub_time_table) do
-              now
-            else
-              case :ets.lookup(pub_time_table, pid) do
-                [{^pid, pt}] -> pt
-                [] -> now
-              end
-            end
-
-          cond do
-            rate == :on_publish ->
-              Process.send(pid, msg, [])
-
-            is_number(rate) and now >= next_pub_time ->
-              Process.send(pid, msg, [])
-              :ets.insert(pub_time_table, [{pid, now + 1000 / rate}])
-
-            true ->
-              nil
-          end
-        end
-
-      {:error, _} ->
-        nil
-    end
-  end
-
-  defp get_publication_nodes(topic, options) do
     remote_pub = options[:remote_publish]
 
-    cond do
-      remote_pub == true ->
-        Node.list()
+    case remote_pub do
+      :force ->
+        for n <- Node.list() do
+          remote_publish(n, topic, message, :tcp, now, pub_time_table, subs)
+        end
 
-      remote_pub == false ->
-        []
-
-      true ->
-        Enum.filter(Node.list(), fn node -> is_remote_subscriber?(node, topic) end)
+      _ ->
+        deliver(
+          pub_time_table,
+          now,
+          topic,
+          message,
+          Map.to_list(subs),
+          subs,
+          remote_pub
+        )
     end
   end
 
-  defp is_remote_subscriber?(sub_node, {pub_node, short_name}) do
-    is_remote_subscriber?(sub_node, pub_node, short_name) or
-      is_remote_subscriber?(sub_node, :*, short_name)
+  # No more subscribers to process
+  def deliver(_pub_time_table, _now, _topic, _message, [], _all_subs, _remote_publish), do: :ok
+
+  # Local subscribers with deliver==true
+  def deliver(
+        pub_time_table,
+        now,
+        topic,
+        message,
+        [{sub_pid, %{deliver: deliver, rate: rate}} | rest],
+        all_subs,
+        remote_publish
+      )
+      when node(sub_pid) == node() and deliver == true do
+    wrapped_msg = {:babble_msg, topic, message}
+    next_pub_time = get_next_pub_time(pub_time_table, now, sub_pid)
+
+    cond do
+      rate == :on_publish ->
+        send(sub_pid, wrapped_msg)
+        update_pub_time(pub_time_table, sub_pid, now)
+
+      is_number(rate) and now >= next_pub_time ->
+        send(sub_pid, wrapped_msg)
+        update_pub_time(pub_time_table, sub_pid, now, rate)
+
+      true ->
+        nil
+    end
+
+    deliver(pub_time_table, now, topic, message, rest, all_subs, remote_publish)
   end
 
-  defp is_remote_subscriber?(sub_node, pub_node, short_name) do
-    with {:ok, [subs]} <- Babble.poll({sub_node, @subscription_topic}, [{pub_node, short_name}]),
-         true <- map_size(subs) > 0 do
-      true
-    else
-      _ ->
-        false
+  # Remote subscribers
+  def deliver(
+        pub_time_table,
+        now,
+        topic,
+        message,
+        [{sub_pid, %{transport: transport}} | rest],
+        all_subs,
+        remote_publish
+      )
+      when node(sub_pid) != node() and remote_publish != false do
+    next_pub_time = get_next_pub_time(pub_time_table, now, sub_pid)
+
+    if now >= next_pub_time do
+      remote_publish(node(sub_pid), topic, message, transport, now, pub_time_table, all_subs)
+    end
+
+    deliver(pub_time_table, now, topic, message, rest, all_subs, remote_publish)
+  end
+
+  # Skip local subscribers with deliver==false or remote subscribers when remote_publish==false
+  def deliver(
+        pub_time_table,
+        now,
+        topic,
+        message,
+        [{sub_pid, %{deliver: deliver}} | rest],
+        all_subs,
+        remote_publish
+      )
+      when (node(sub_pid) == node() and deliver == false) or
+             (node(sub_pid) != node() and remote_publish == false) do
+    deliver(pub_time_table, now, topic, message, rest, all_subs, remote_publish)
+  end
+
+  # Get the next time to publish the topic for the specified subscriber PID
+  def get_next_pub_time(pub_time_table, now, sub_pid) do
+    case :ets.lookup(pub_time_table, sub_pid) do
+      [{^sub_pid, next_pub_time}] -> next_pub_time
+      [] -> now
     end
   end
 end

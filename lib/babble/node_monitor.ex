@@ -30,6 +30,6 @@ defmodule Babble.NodeMonitor do
   defp publish_control_topics do
     {:ok, table} = Babble.poll(@subscription_topic)
     # TODO: Only deliver this publication to _node, not everyone
-    Babble.PubWorker._internal_publish(@subscription_topic, table, remote_publish: true)
+    Babble.PubWorker._internal_publish(@subscription_topic, table, remote_publish: :force)
   end
 end

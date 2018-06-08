@@ -83,6 +83,7 @@ defmodule BabbleTest do
 
   @topic1 "test.remote.topic1"
   @topic2 "test.remote.topic2"
+  @topic3 "test.remote.topic3"
   @slaves [:"test-slave1@127.0.0.1", :"test-slave2@127.0.0.1", :"test-slave3@127.0.0.1"]
 
   @tag :cluster
@@ -90,6 +91,7 @@ defmodule BabbleTest do
     # Subscribe to topics by node individually
     for slave <- @slaves do
       Babble.subscribe({slave, @topic1})
+      Babble.subscribe({slave, @topic3}, deliver: false, rate: 100, transport: :udp)
     end
 
     # Subscribe to wildcard topic
@@ -130,26 +132,33 @@ defmodule BabbleTest do
       # Publish topics
       msg1 = %{key1: :val1, key2: :val2}
       msg2 = %{key1: 1, key2: 2}
+      msg3 = %{key1: 42, key2: 42}
       :ok = :rpc.call(slave, Babble, :publish, [@topic1, msg1])
       :ok = :rpc.call(slave, Babble, :publish, [@topic2, msg2])
+      :ok = :rpc.call(slave, Babble, :publish, [@topic3, msg3])
 
       # Receive topics
       fq_topic1 = {slave, @topic1}
       fq_topic2 = {slave, @topic2}
+      fq_topic3 = {slave, @topic3}
       assert_receive {:babble_msg, ^fq_topic1, ^msg1}
       assert_receive {:babble_msg, ^fq_topic2, ^msg2}
+      refute_receive {:babble_msg, ^fq_topic3, ^msg3}
       {:ok, ^msg1} = Babble.poll(fq_topic1)
       {:ok, ^msg2} = Babble.poll(fq_topic2)
+      {:ok, ^msg3} = Babble.poll(fq_topic3)
 
       # Echo loop
-      listen_topic = "test.echo.listen"
-      response_topic = "test.echo.response"
-      :ok = Babble.subscribe({:*, response_topic})
-      Node.spawn_link(slave, BabbleTest.Utils, :echo, [listen_topic, response_topic])
-      Process.sleep(200)
-      echo_msg = %{echo: true}
-      Babble.publish(listen_topic, echo_msg)
-      assert_receive {:babble_msg, {^slave, ^response_topic}, ^echo_msg}
+      for {options, index} <- Enum.with_index([[], [transport: :udp, rate: 10]]) do
+        listen_topic = "test.echo.listen" <> Integer.to_string(index)
+        response_topic = "test.echo.response" <> Integer.to_string(index)
+        :ok = Babble.subscribe({:*, response_topic}, options)
+        Node.spawn_link(slave, BabbleTest.Utils, :echo, [listen_topic, response_topic, options])
+        Process.sleep(200)
+        echo_msg = %{echo: true, index: index}
+        Babble.publish(listen_topic, echo_msg)
+        assert_receive {:babble_msg, {^slave, ^response_topic}, ^echo_msg}
+      end
 
       # Make sure remote tables don't disappear if the PubWorker dies
       fq_topic1 |> Babble.Utils.table_name() |> Process.whereis() |> Process.exit(:kill)

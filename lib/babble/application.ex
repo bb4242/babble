@@ -8,8 +8,8 @@ defmodule Babble.Application do
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
-      # Starts a worker by calling: Babble.Worker.start_link(arg)
-      # {Babble.Worker, arg},
+      {Babble.Transports.UdpMulticast, []},
+      {Babble.Transports.RemotePublisher, []},
       {Babble.TableHeir, []},
       {DynamicSupervisor,
        name: Babble.PubWorkerSupervisor, strategy: :one_for_one, max_restarts: 10, max_seconds: 3},
