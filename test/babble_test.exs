@@ -120,6 +120,13 @@ defmodule BabbleTest do
     Process.sleep(500)
 
     for slave <- @slaves do
+      # Remote nodes trying to subscribe locally should produce an error
+      {:error, _} =
+        :rpc.call(slave, GenServer, :call, [
+          {Babble.SubscriptionManager, Node.self()},
+          {:subscribe, @topic1, []}
+        ])
+
       # Publish topics
       msg1 = %{key1: :val1, key2: :val2}
       msg2 = %{key1: 1, key2: 2}

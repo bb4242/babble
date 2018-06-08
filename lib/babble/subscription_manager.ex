@@ -25,33 +25,33 @@ defmodule Babble.SubscriptionManager do
   def handle_call({:subscribe, topic, options}, {pid, _tag}, state = %State{monitors: monitors}) do
     # Ensure we only register subscribers on the local node
     if Node.self() != node(pid) do
-      raise ArgumentError, message: "Cannot register a remote subscriber!"
+      {:reply, {:error, "Cannot register a remote subscriber"}, state}
+    else
+      existing_subs =
+        case Babble.poll(@subscription_topic, [topic]) do
+          {:ok, [subs]} -> subs
+          {:error, _} -> %{}
+        end
+
+      new_subs = Map.put(existing_subs, pid, options)
+
+      :ok =
+        Babble.PubWorker._internal_publish(
+          @subscription_topic,
+          %{topic => new_subs},
+          sync: true,
+          remote_publish: true
+        )
+
+      monitor =
+        case Map.fetch(monitors, pid) do
+          {:ok, m} -> m
+          :error -> Process.monitor(pid)
+        end
+
+      monitors = Map.put(monitors, pid, monitor)
+      {:reply, :ok, %{state | monitors: monitors}}
     end
-
-    existing_subs =
-      case Babble.poll(@subscription_topic, [topic]) do
-        {:ok, [subs]} -> subs
-        {:error, _} -> %{}
-      end
-
-    new_subs = Map.put(existing_subs, pid, options)
-
-    :ok =
-      Babble.PubWorker._internal_publish(
-        @subscription_topic,
-        %{topic => new_subs},
-        sync: true,
-        remote_publish: true
-      )
-
-    monitor =
-      case Map.fetch(monitors, pid) do
-        {:ok, m} -> m
-        :error -> Process.monitor(pid)
-      end
-
-    monitors = Map.put(monitors, pid, monitor)
-    {:reply, :ok, %{state | monitors: monitors}}
   end
 
   def handle_call({:unsubscribe, topic}, {pid, _tag}, state) do
