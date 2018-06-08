@@ -14,7 +14,8 @@ defmodule Babble.MixProject do
         "coveralls.detail": :test,
         "coveralls.post": :test,
         "coveralls.html": :test
-      ]
+      ],
+      elixirc_paths: elixirc_paths(Mix.env())
     ]
   end
 
@@ -25,6 +26,9 @@ defmodule Babble.MixProject do
       mod: {Babble.Application, []}
     ]
   end
+
+  defp elixirc_paths(:test), do: elixirc_paths(:all) ++ ["test/support"]
+  defp elixirc_paths(_all), do: ["lib"]
 
   defp applications(:dev), do: applications(:all) ++ [:remix]
   defp applications(_all), do: [:logger]

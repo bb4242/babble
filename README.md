@@ -33,4 +33,4 @@ be found at [https://hexdocs.pm/babble](https://hexdocs.pm/babble).
   - [ ] HMAC based on node cookie to filter messages from other node clusters
 - [ ] Message timestamps
   - [ ] Honor `:stale_time` parameter of `Babble.poll`
-- [ ] Multi-node test suite
+- [x] Multi-node test suite

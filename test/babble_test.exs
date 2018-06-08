@@ -120,17 +120,29 @@ defmodule BabbleTest do
     Process.sleep(500)
 
     for slave <- @slaves do
+      # Publish topics
       msg1 = %{key1: :val1, key2: :val2}
       msg2 = %{key1: 1, key2: 2}
       :ok = :rpc.call(slave, Babble, :publish, [@topic1, msg1])
       :ok = :rpc.call(slave, Babble, :publish, [@topic2, msg2])
 
+      # Receive topics
       fq_topic1 = {slave, @topic1}
       fq_topic2 = {slave, @topic2}
       assert_receive {:babble_msg, ^fq_topic1, ^msg1}
       assert_receive {:babble_msg, ^fq_topic2, ^msg2}
       {:ok, ^msg1} = Babble.poll(fq_topic1)
       {:ok, ^msg2} = Babble.poll(fq_topic2)
+
+      # Echo loop
+      listen_topic = "test.echo.listen"
+      response_topic = "test.echo.response"
+      :ok = Babble.subscribe({:*, response_topic})
+      Node.spawn_link(slave, BabbleTest.Utils, :echo, [listen_topic, response_topic])
+      Process.sleep(200)
+      echo_msg = %{echo: true}
+      Babble.publish(listen_topic, echo_msg)
+      assert_receive {:babble_msg, {^slave, ^response_topic}, ^echo_msg}
 
       # Make sure remote tables don't disappear if the PubWorker dies
       fq_topic1 |> Babble.Utils.table_name() |> Process.whereis() |> Process.exit(:kill)
