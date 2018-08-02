@@ -30,7 +30,6 @@ defmodule Babble.MixProject do
   defp elixirc_paths(:test), do: elixirc_paths(:all) ++ ["test/support"]
   defp elixirc_paths(_all), do: ["lib"]
 
-  defp applications(:dev), do: applications(:all) ++ [:remix]
   defp applications(_all), do: [:logger]
 
   # Run "mix help deps" to learn about dependencies.
@@ -41,10 +40,9 @@ defmodule Babble.MixProject do
       {:dialyxir, "~> 0.5", only: :dev, runtime: false},
       {:credo, "~> 0.9.2", only: :dev, runtime: false},
       {:excoveralls, "~> 0.8.2", only: :test},
-      {:remix, "~> 0.0.1", only: :dev},
       {:pre_commit, github: "bb4242/elixir-pre-commit", tag: "cdef380", only: :dev},
       {:junit_formatter, "~> 2.1", only: :test},
-      {:libcluster, "~> 2.5", runtime: false}
+      {:libcluster, "~> 3.0", runtime: false}
     ]
   end
 end

@@ -7,14 +7,14 @@ defmodule Babble.Utils do
   ## Examples
 
   ```
-  iex> Babble.Utils.fully_qualified_topic_name({:"node@host", "my.topic"})
-  {:"node@host", "my.topic"}
+  iex> Babble.Utils.fully_qualified_topic_name({:node@host, "my.topic"})
+  {:node@host, "my.topic"}
 
   iex> Babble.Utils.fully_qualified_topic_name(:"node@host:my.topic")
-  {:"node@host", "my.topic"}
+  {:node@host, "my.topic"}
 
   iex> Babble.Utils.fully_qualified_topic_name("node@host:my.topic")
-  {:"node@host", "my.topic"}
+  {:node@host, "my.topic"}
   ```
   """
   @spec fully_qualified_topic_name(Babble.topic()) :: atom()
@@ -40,7 +40,7 @@ defmodule Babble.Utils do
 
   ```
   iex> Babble.Utils.get_topic_node(:"node@host:my.topic")
-  :"node@host"
+  :node@host
   ```
   """
   def get_topic_node(topic) do

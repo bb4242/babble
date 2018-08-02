@@ -30,10 +30,6 @@ use Mix.Config
 #     import_config "#{Mix.env}.exs"
 
 if Mix.env() == :dev do
-  config :remix,
-    escript: true,
-    silent: true
-
   config :pre_commit,
     commands: ["format --check-formatted --dry-run", "test --exclude cluster"],
     verbose: true
@@ -47,7 +43,7 @@ end
 config :libcluster,
   debug: false,
   topologies: [
-    testing_cluster: [
+    babble_cluster: [
       strategy: Cluster.Strategy.Gossip,
       config: [
         port: 45892,

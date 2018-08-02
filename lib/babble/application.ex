@@ -8,6 +8,8 @@ defmodule Babble.Application do
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
+      {Cluster.Supervisor,
+       [Application.get_env(:libcluster, :topologies), [name: Babble.LibClusterSupervisor]]},
       {Babble.Transports.UdpMulticast, []},
       {Babble.Transports.RemotePublisher, []},
       {Babble.TableHeir, []},

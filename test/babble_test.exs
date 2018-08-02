@@ -111,7 +111,10 @@ defmodule BabbleTest do
         )
       end)
 
-      on_exit(fn -> :slave.stop(slave) end)
+      on_exit(fn ->
+        IO.puts("Shutting down #{slave}")
+        :slave.stop(slave)
+      end)
     end
 
     for slave <- @slaves do
