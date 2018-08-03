@@ -12,7 +12,7 @@ defmodule Babble.Transports.RemotePublisher do
   end
 
   def remote_publish(remote_node, topic, message, transport = :tcp, now, pub_time_table, all_subs) do
-    send({__MODULE__, remote_node}, {:p, topic, message})
+    :ok = GenServer.call({__MODULE__, remote_node}, {:p, topic, message})
 
     for {sub_pid, %{rate: rate, transport: ^transport}} <- all_subs,
         is_number(rate),
@@ -35,6 +35,12 @@ defmodule Babble.Transports.RemotePublisher do
   def init(_opts) do
     {:ok, _} = Babble.Transports.UdpMulticast.register_listener(@udp_message_id)
     {:ok, []}
+  end
+
+  @impl true
+  def handle_call(full_msg = {:p, _topic, _message}, _from, state) do
+    {:noreply, new_state} = handle_info(full_msg, state)
+    {:reply, :ok, new_state}
   end
 
   @impl true

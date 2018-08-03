@@ -122,7 +122,7 @@ defmodule BabbleTest do
     end
 
     # Allow subscription tables to synchronize
-    Process.sleep(500)
+    Process.sleep(2000)
 
     for slave <- @slaves do
       # Remote nodes trying to subscribe locally should produce an error
